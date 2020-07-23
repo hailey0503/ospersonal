@@ -501,7 +501,7 @@ static struct thread *
 find_top_priority(struct list* ready_list) {
   intr_disable(); // Disable interrupts while modifying ready_list
   struct list_elem* max_elem = list_max(ready_list, priority_comparator, NULL);
-  struct thread* max_thread = list_entry(*max_elem, struct thread, elem);
+  struct thread* max_thread = list_entry(max_elem, struct thread, elem);
   list_remove(max_elem);
   intr_enable(); // Re-enable them
   return max_thread;

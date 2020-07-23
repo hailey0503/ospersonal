@@ -32,6 +32,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+int priority_comparator(struct thread t1, struct thread t2);
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -264,7 +265,7 @@ lock_try_acquire (struct lock *lock)
      thread's priority to the highest priority amongst it's donors and reasign the lock's donor
      variable to the new donor. If the donor's list is empty, we just set the current thread's
      priority to its original priority. */
-     if (list_begin(&thread_current()->donors != list_end(&thread_current()->donors)) {
+     if (list_begin(&thread_current()->donors != list_end(&thread_current()->donors))) {
        struct list_elem *highest_priority = list_max(&thread_current()->donors, priority_comparator, NULL);
        struct thread *new_donor = list_entry(highest_priority, struct thread, donor_elem);
        thread_current()->priority = new_donor->priority;
