@@ -71,7 +71,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static struct thread * find_top_priority(struct list * ready_list);
 static tid_t allocate_tid (void);
-int priority_comparator(struct thread t1, struct thread t2);
+bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -202,7 +202,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  thread_yield();
   return tid;
 }
 
@@ -337,7 +337,13 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
+  enum intr_level old_level;
+  old_level = intr_disable();
+
   thread_current ()->priority = new_priority;
+  thread_current ()->original_priority = new_priority;
+  thread_yield();
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -464,7 +470,9 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->original_priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&t->donors);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -484,16 +492,13 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
-int priority_comparator(struct thread t1, struct thread t2) {
-
-  int t1_priority = t1.priority;
-  int t2_priority = t2.priority;
-	if (t1_priority < t2_priority) {
-      return -1;
-  } else if (t1_priority > t2_priority){
-      return 1;
-	} else {
-      return 0;
+bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux) {
+  struct thread *t1 = list_entry(a, struct thread, elem);
+  struct thread *t2 = list_entry(b, struct thread, elem);
+	if (t1->priority < t2->priority) {
+      return true;
+  } else {
+    return false;
   }
 }
 
