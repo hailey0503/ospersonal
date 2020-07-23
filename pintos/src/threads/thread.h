@@ -89,6 +89,8 @@ struct thread
     struct list_elem donor_elem;       /* List element for donor threads */
     int original_priority;             /* Priority before donation */
     struct lock *blocking_lock;        /* The lock this thread will block on */
+    struct list_elem s_elem;           /* for sleeping list */
+    int64_t wake_time;                 /* set when thread is put on the sleeping list */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -137,5 +139,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void set_and_sleep(struct thread *t, int64_t time);
+void wake_next(void);
 
 #endif /* threads/thread.h */

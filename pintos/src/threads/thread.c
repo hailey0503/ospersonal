@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -27,6 +28,8 @@ static struct list ready_list;
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+static struct list sleeping_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -71,7 +74,33 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static struct thread * find_top_priority(struct list * ready_list);
 static tid_t allocate_tid (void);
+static bool less_list(const struct list_elem *t1,const struct list_elem *t2, void *aux);
+void set_and_sleep(struct thread *t, int64_t time);
 bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
+
+/*comparator for wake_time. t1 and t2 are list_elems of sleeping_list, aux is UNUSED */
+static bool less_list(const struct list_elem *t1, const struct list_elem *t2, void *aux) {
+
+  struct thread *a = list_entry(t1,struct thread,s_elem);
+  struct thread *b = list_entry(t2,struct thread,s_elem);
+  return a->wake_time < b->wake_time;
+}
+
+/* set a thread to sleep, called in timer.c timer_sleep */
+void set_and_sleep(struct thread *t, int64_t time) {
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  /*set wake_time, put thread t on sleeping list and block it */
+  t->wake_time = time;
+  list_push_back(&sleeping_list,&t->s_elem);
+  thread_block();
+
+  intr_set_level(old_level);
+  return;
+
+}
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -94,6 +123,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init(&sleeping_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -135,6 +165,27 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
+
+    enum intr_level old_level;
+    old_level = intr_disable ();
+
+    //if the list isnt empty, sort it and iterate through candidate threads and wake accordingly
+    if (!list_empty(&sleeping_list)) {
+      list_sort(&sleeping_list,less_list,NULL);
+
+      struct list_elem *e;
+      for (e = list_begin(&sleeping_list); e != list_end(&sleeping_list); e = list_next(e)) {
+        struct thread *candidate = list_entry(e,struct thread,s_elem);
+        
+        /*timer_ticks seems to be the same as kernel ticks, but imported timer.h just to be safe */
+        if (candidate->wake_time <= timer_ticks()) {
+          thread_unblock(candidate);
+          list_remove(e);
+        }
+      }
+    }
+
+intr_set_level (old_level);
 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
