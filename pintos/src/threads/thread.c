@@ -71,6 +71,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static struct thread * find_top_priority(struct list * ready_list);
 static tid_t allocate_tid (void);
+int priority_comparator(struct thread t1, struct thread t2);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
