@@ -69,6 +69,7 @@ static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
+static struct thread * find_top_priority(struct list * ready_list);
 static tid_t allocate_tid (void);
 
 /* Initializes the threading system by transforming the code
@@ -482,6 +483,31 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+int priority_comparator(struct thread t1, struct thread t2) {
+
+  int t1_priority = t1.priority;
+  int t2_priority = t2.priority;
+	if (t1_priority < t2_priority) {
+      return -1;
+  } else if (t1_priority > t2_priority){
+      return 1;
+	} else {
+      return 0;
+  }
+}
+
+
+static struct thread *
+find_top_priority(struct list* ready_list) {
+  intr_disable(); // Disable interrupts while modifying ready_list
+  struct list_elem* max_elem = list_max(ready_list, priority_comparator, NULL);
+  struct thread* max_thread = list_entry(*max_elem, struct thread, elem);
+  list_remove(max_elem);
+  intr_enable(); // Re-enable them
+  return max_thread;
+}
+
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -493,7 +519,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return find_top_priority(&ready_list);
 }
 
 /* Completes a thread switch by activating the new thread's page
