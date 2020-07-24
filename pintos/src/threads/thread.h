@@ -91,6 +91,7 @@ struct thread
     struct lock *blocking_lock;        /* The lock this thread will block on */
     struct list_elem s_elem;           /* for sleeping list */
     int64_t wake_time;                 /* set when thread is put on the sleeping list */
+    struct thread* donor;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

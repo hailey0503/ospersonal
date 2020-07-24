@@ -193,17 +193,6 @@ lock_init (struct lock *lock)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-/*
-void
-lock_acquire (struct lock *lock)
-{
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (!lock_held_by_current_thread (lock));
-
-  sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
-} */
 
 void
 lock_acquire (struct lock *lock)
@@ -212,42 +201,45 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
   old_level = intr_disable ();
   // check if lock is already acquired
   if (lock->holder != NULL) {
-      //Push the new donor onto the lock holder's list of donors, update
-      //the priority of the lock holder, assign the lock's donor variable to its new donor,
-      //and assign the current thread's blocking lock variable to the lock it's
-      //trying to acquire, since it is trying to acquire an acquired lock.
-      list_push_back(&lock->holder->donors, &thread_current()->donor_elem);
-      struct list_elem *max_elem = list_max(&lock->holder->donors, priority_donor_comparator, NULL);
-      struct thread *max_thread = list_entry(max_elem, struct thread, donor_elem);
-      lock->holder->priority = max_thread->priority;
-      lock->donor = max_thread;
-      thread_current()->blocking_lock = lock;
+    //Push the new donor onto the lock holder's list of donors, update
+    //the priority of the lock holder, assign the lock holder's donor variable to its new donor,
+    //and assign the current thread's blocking lock variable to the lock it's
+    //trying to acquire, since it is trying to acquire an acquired lock.
+    list_push_back(&lock->holder->donors, &thread_current()->donor_elem);
+    struct list_elem *max_elem = list_max(&lock->holder->donors, priority_donor_comparator, NULL);
+    struct thread *max_thread = list_entry(max_elem, struct thread, donor_elem);
+    lock->holder->priority = max_thread->priority;
+    lock->holder->donor = max_thread;
 
-      // This part is to check if there is a chain. For example There are threads 0-5 (with priority = thread number)
-      // and locks 0-4 thread[i] will acquire lock[i] (except thread 5), and then thread[i] will try to acquire lock[i-1]
-      // (except thread 0). Then, thread 5 will donate to thread 4, which will cause a chain reaction
-      // such that thread 0 will have priority 5. If that doesn't make sense try to draw out the chain on paper.
-      struct lock *head_lock = lock->holder->blocking_lock;
-      struct lock *tail_lock = lock;
-      while (head_lock != NULL && head_lock->donor == tail_lock->holder) {
-        head_lock->holder->priority = tail_lock->holder->priority;
-        head_lock = head_lock->holder->blocking_lock;
-        tail_lock = tail_lock->holder->blocking_lock;
-      }
+    // This part is to check if there is a chain. For example There are threads 0-5 (with priority = thread number)
+    // and locks 0-4 thread[i] will acquire lock[i] (except thread 5), and then thread[i] will try to acquire lock[i-1]
+    // (except thread 0). Then, thread 5 will donate to thread 4, which will cause a chain reaction
+    // such that thread 0 will have priority 5. If that doesn't make sense try to draw out the chain on paper.
+    struct lock *head_lock = lock->holder->blocking_lock;
+    struct lock *tail_lock = lock;
+    while (head_lock != NULL && head_lock->holder->donor == tail_lock->holder) {
+      head_lock->holder->priority = tail_lock->holder->priority;
+      head_lock = head_lock->holder->blocking_lock;
+      tail_lock = tail_lock->holder->blocking_lock;
+    } 
+    thread_current()->blocking_lock = lock;
   }
-
   intr_set_level (old_level);
   sema_down (&lock->semaphore);
+  old_level = intr_disable ();
   // Since the lock has been acquired by the current thread, we change the
   //current thread's blocking_lock variable to NULL
   thread_current()->blocking_lock = NULL;
   lock->holder = thread_current ();
+  for (struct list_elem *e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    list_push_back(&thread_current()->donors, &t->donor_elem);
+  }
+  intr_set_level (old_level);
 }
-
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -280,16 +272,6 @@ bool priority_donor_comparator(const struct list_elem *a, const struct list_elem
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
-/*
-void
-lock_release (struct lock *lock)
-{
-  ASSERT (lock != NULL);
-  ASSERT (lock_held_by_current_thread (lock));
-
-  lock->holder = NULL;
-  sema_up (&lock->semaphore);
-} */
 
 void
 lock_release (struct lock *lock)
@@ -298,14 +280,16 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   old_level = intr_disable ();
+
+  // We have to remove every waiter for the lock that is getting released from the donor's list.
+  struct list_elem *e;
+  for (e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    list_remove(&t->donor_elem);
+  }
+
   //Check if there is an existing donor for this lock.
-  if (lock->donor != NULL) {
-    // We have to remove every waiter for the lock that is getting released from the donor's list.
-    struct list_elem *e;
-    for (e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
-      struct thread *t = list_entry(e, struct thread, elem);
-      list_remove(&t->donor_elem);
-    }
+  if (thread_current()->donor != NULL) {
     //Check if the list of donors is empty. If its not empty, then we set the current
     //thread's priority to the highest priority amongst it's donors and reasign the lock's donor
     //variable to the new donor. If the donor's list is empty, we just set the current thread's
@@ -314,10 +298,10 @@ lock_release (struct lock *lock)
       struct list_elem *max_elem = list_max(&thread_current()->donors, priority_donor_comparator, NULL);
       struct thread *new_donor = list_entry(max_elem, struct thread, donor_elem);
       thread_current()->priority = new_donor->priority;
-      new_donor->blocking_lock->donor = new_donor;
+      thread_current()->donor = new_donor;
     } else {
       thread_current()->priority = thread_current()->original_priority;
-      lock->donor = NULL;
+      thread_current()->donor = NULL;
     }
   }
 
