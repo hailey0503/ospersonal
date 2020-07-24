@@ -300,6 +300,7 @@ lock_release (struct lock *lock)
   old_level = intr_disable ();
   //Check if there is an existing donor for this lock.
   if (lock->donor != NULL) {
+    // We have to remove every waiter for the lock that is getting released from the donor's list.
     struct list_elem *e;
     for (e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
