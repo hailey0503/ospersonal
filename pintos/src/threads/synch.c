@@ -224,7 +224,7 @@ lock_acquire (struct lock *lock)
       head_lock->holder->priority = tail_lock->holder->priority;
       head_lock = head_lock->holder->blocking_lock;
       tail_lock = tail_lock->holder->blocking_lock;
-    } 
+    }
     thread_current()->blocking_lock = lock;
   }
   intr_set_level (old_level);
@@ -234,6 +234,7 @@ lock_acquire (struct lock *lock)
   //current thread's blocking_lock variable to NULL
   thread_current()->blocking_lock = NULL;
   lock->holder = thread_current ();
+  // New holder of the lock, so we must populate it's donor's list with all of its contenders
   for (struct list_elem *e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
     struct thread *t = list_entry(e, struct thread, elem);
     list_push_back(&thread_current()->donors, &t->donor_elem);
