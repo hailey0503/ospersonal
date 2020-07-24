@@ -226,8 +226,19 @@ lock_acquire (struct lock *lock)
       lock->holder->priority = max_thread->priority;
       lock->donor = max_thread;
       thread_current()->blocking_lock = lock;
-      if (lock->holder->blocking_lock != NULL && lock->holder->blocking_lock->donor == lock->holder) {
-          lock->holder->blocking_lock->holder->priority = lock->holder->priority;
+
+      // This part is to check if there is a chain. For example There are threads 0-5 (with priority = thread number)
+      // and locks 0-4 thread[i] will acquire lock[i] (except thread 5), and then thread[i] will try to acquire lock[i-1]
+      // (except thread 0). Then, thread 5 will donate to thread 4, which will cause a chain reaction
+      // such that thread 0 will have priority 5. If that doesn't make sense try to draw out the chain on paper.
+      struct lock *head_lock = lock->holder->blocking_lock;
+      struct lock *tail_lock = lock;
+      while (head_lock != NULL) {
+        if (head_lock->donor == tail_lock->holder) {
+          head_lock->holder->priority = tail_lock->holder->priority;
+        }
+        head_lock = head_lock->holder->blocking_lock;
+        tail_lock = tail_lock->holder->blocking_lock;
       }
   }
 
