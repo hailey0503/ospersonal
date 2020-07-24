@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "threads/synch.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -74,12 +75,12 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static struct thread * find_top_priority(struct list * ready_list);
 static tid_t allocate_tid (void);
-static bool less_list(const struct list_elem *t1,const struct list_elem *t2, void *aux);
+static bool less_list(const struct list_elem *t1,const struct list_elem *t2, void *aux UNUSED);
 void set_and_sleep(struct thread *t, int64_t time);
-bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /*comparator for wake_time. t1 and t2 are list_elems of sleeping_list, aux is UNUSED */
-static bool less_list(const struct list_elem *t1, const struct list_elem *t2, void *aux) {
+static bool less_list(const struct list_elem *t1, const struct list_elem *t2, void *aux UNUSED) {
 
   struct thread *a = list_entry(t1,struct thread,s_elem);
   struct thread *b = list_entry(t2,struct thread,s_elem);
@@ -163,8 +164,9 @@ thread_tick (void)
   else if (t->pagedir != NULL)
     user_ticks++;
 #endif
-  else
+  else {
     kernel_ticks++;
+  }
 
     enum intr_level old_level;
     old_level = intr_disable ();
@@ -176,7 +178,7 @@ thread_tick (void)
       struct list_elem *e;
       for (e = list_begin(&sleeping_list); e != list_end(&sleeping_list); e = list_next(e)) {
         struct thread *candidate = list_entry(e,struct thread,s_elem);
-        
+
         /*timer_ticks seems to be the same as kernel ticks, but imported timer.h just to be safe */
         if (candidate->wake_time <= timer_ticks()) {
           thread_unblock(candidate);
@@ -390,9 +392,20 @@ thread_set_priority (int new_priority)
 {
   enum intr_level old_level;
   old_level = intr_disable();
+  if (!list_empty(&thread_current()->donors)) {
+    struct list_elem *max_elem = list_max(&thread_current()->donors, priority_donor_comparator, NULL);
+    struct thread *max_thread = list_entry(max_elem, struct thread, donor_elem);
+    if (new_priority > max_thread->priority) {
+      thread_current ()->priority = new_priority;
+      thread_current ()->original_priority = new_priority;
+    } else {
+      thread_current() ->original_priority = new_priority;
+    }
 
-  thread_current ()->priority = new_priority;
-  thread_current ()->original_priority = new_priority;
+  } else {
+    thread_current ()->priority = new_priority;
+    thread_current()->original_priority = new_priority;
+  }
   thread_yield();
   intr_set_level(old_level);
 }
@@ -543,7 +556,7 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
-bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux) {
+bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
   struct thread *t1 = list_entry(a, struct thread, elem);
   struct thread *t2 = list_entry(b, struct thread, elem);
 	if (t1->priority < t2->priority) {
