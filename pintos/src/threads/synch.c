@@ -226,6 +226,9 @@ lock_acquire (struct lock *lock)
       lock->holder->priority = max_thread->priority;
       lock->donor = max_thread;
       thread_current()->blocking_lock = lock;
+      if (lock->holder->blocking_lock != NULL && lock->holder->blocking_lock->donor == lock->holder) {
+          lock->holder->blocking_lock->holder->priority = lock->holder->priority;
+      }
   }
 
   intr_set_level (old_level);
