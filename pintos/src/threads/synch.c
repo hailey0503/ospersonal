@@ -214,49 +214,18 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   old_level = intr_disable ();
+  // check if lock is already acquired
   if (lock->holder != NULL) {
+      //Push the new donor onto the lock holder's list of donors, update
+      //the priority of the lock holder, assign the lock's donor variable to its new donor,
+      //and assign the current thread's blocking lock variable to the lock it's
+      //trying to acquire, since it is trying to acquire an acquired lock.
       list_push_back(&lock->holder->donors, &thread_current()->donor_elem);
       struct list_elem *max_elem = list_max(&lock->holder->donors, priority_donor_comparator, NULL);
       struct thread *max_thread = list_entry(max_elem, struct thread, donor_elem);
       lock->holder->priority = max_thread->priority;
       lock->donor = max_thread;
-
-    thread_current()->blocking_lock = lock;
-  }
-
-  intr_set_level (old_level);
-  sema_down (&lock->semaphore);
-  thread_current()->blocking_lock = NULL;
-  lock->holder = thread_current ();
-}
-
-/*void
-lock_acquire (struct lock *lock)
-{
-  enum intr_level old_level;
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (!lock_held_by_current_thread (lock));
-
-  old_level = intr_disable ();
-  // check if lock is already acquired
-  if (lock->holder != NULL) {
-    // check if current thread's priority is higher than the lock holder's priority
-    if (thread_current()->priority > lock->holder->original_priority) {
-        // check if there is an existing donor for this lock. If there is then we
-        //remove the existing donor from the lock holder's list of donors
-        if (lock->donor != NULL) {
-          list_remove(&lock->donor->donor_elem);
-        }
-
-        //Push the new donor onto the lock holder's list of donors, update
-        //the priority of the lock holder, assign the lock's donor variable to its new donor,
-        //and assign the current thread's blocking lock variable to the lock it's
-        //trying to acquire, since it is trying to acquire an acquired lock.
-        list_push_front(&lock->holder->donors, &thread_current()->donor_elem);
-        lock->donor = thread_current();
-        thread_current()->blocking_lock = lock;
-    }
+      thread_current()->blocking_lock = lock;
   }
 
   intr_set_level (old_level);
@@ -265,7 +234,8 @@ lock_acquire (struct lock *lock)
   //current thread's blocking_lock variable to NULL
   thread_current()->blocking_lock = NULL;
   lock->holder = thread_current ();
-} */
+}
+
 
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
@@ -316,14 +286,26 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   old_level = intr_disable ();
+  //Check if there is an existing donor for this lock.
   if (lock->donor != NULL) {
     struct list_elem *e;
     for (e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
       list_remove(&t->donor_elem);
     }
-    thread_current()->priority = thread_current()->original_priority;
-    lock->donor = NULL;
+    //Check if the list of donors is empty. If its not empty, then we set the current
+    //thread's priority to the highest priority amongst it's donors and reasign the lock's donor
+    //variable to the new donor. If the donor's list is empty, we just set the current thread's
+    //priority to its original priority.
+    if (!list_empty(&thread_current()->donors)) {
+      struct list_elem *max_elem = list_max(&thread_current()->donors, priority_donor_comparator, NULL);
+      struct thread *new_donor = list_entry(max_elem, struct thread, donor_elem);
+      thread_current()->priority = new_donor->priority;
+      new_donor->blocking_lock->donor = new_donor;
+    } else {
+      thread_current()->priority = thread_current()->original_priority;
+      lock->donor = NULL;
+    }
   }
 
   lock->holder = NULL;
@@ -331,38 +313,6 @@ lock_release (struct lock *lock)
   sema_up (&lock->semaphore);
 }
 
-/*
-void
-lock_release (struct lock *lock)
-{
-  enum intr_level old_level;
-  ASSERT (lock != NULL);
-  ASSERT (lock_held_by_current_thread (lock));
-
-  old_level = intr_disable ();
-  //Check if there is an existing donor for this lock. If there is then,
-  //we remove the donor from the lock holder's list of donors
-  if (lock->donor != NULL) {
-    list_remove(&lock->donor->donor_elem);
-    lock->donor = NULL;
-
-  //Check if the list of donors is empty. If its not empty, then we set the current
-  //thread's priority to the highest priority amongst it's donors and reasign the lock's donor
-  //variable to the new donor. If the donor's list is empty, we just set the current thread's
-  //priority to its original priority.
-    if (!list_empty(&thread_current()->donors)) {
-      struct list_elem *highest_priority = list_max(&thread_current()->donors, priority_release_comparator, NULL);
-      struct thread *new_donor = list_entry(highest_priority, struct thread, donor_elem);
-      thread_current()->priority = new_donor->priority;
-      new_donor->blocking_lock->donor = new_donor;
-    } else {
-      thread_current()->priority = thread_current()->original_priority;
-    }
-  }
-  intr_set_level (old_level);
-  lock->holder = NULL;
-  sema_up (&lock->semaphore);
-}*/
 
 /* Returns true if the current thread holds LOCK, false
    otherwise.  (Note that testing whether some other thread holds
