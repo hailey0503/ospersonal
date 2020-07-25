@@ -398,8 +398,11 @@ thread_set_priority (int new_priority)
     if (new_priority > max_thread->priority) {
       thread_current ()->priority = new_priority;
       thread_current ()->original_priority = new_priority;
+    //  thread_current ()->donor = NULL;
     } else {
       thread_current() ->original_priority = new_priority;
+    //  thread_current() ->priority = max_thread->priority;
+    //  thread_current() ->donor = max_thread;
     }
 
   } else {
