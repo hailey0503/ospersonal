@@ -220,7 +220,7 @@ lock_acquire (struct lock *lock)
     // such that thread 0 will have priority 5. If that doesn't make sense try to draw out the chain on paper.
     struct lock *head_lock = lock->holder->blocking_lock;
     struct lock *tail_lock = lock;
-    while (head_lock != NULL && head_lock->holder->donor == tail_lock->holder) {
+    while (head_lock != NULL &&  head_lock->holder != NULL && head_lock->holder->donor == tail_lock->holder) {
       head_lock->holder->priority = tail_lock->holder->priority;
       head_lock = head_lock->holder->blocking_lock;
       tail_lock = tail_lock->holder->blocking_lock;
