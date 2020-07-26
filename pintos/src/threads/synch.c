@@ -229,10 +229,13 @@ lock_acquire (struct lock *lock)
       tail_lock = tail_lock->holder->blocking_lock;
     }
     thread_current()->blocking_lock = lock;
+    list_push_back(&lock->semaphore.waiters, &thread_current()->elem);
+    thread_block();
+    lock->semaphore.value--;
   } else {
     lock->holder = thread_current();
+    sema_down(&lock->semaphore);
   }
-  sema_down(&lock->semaphore);
   intr_set_level (old_level);
 
 }
@@ -296,12 +299,16 @@ lock_release (struct lock *lock)
       if (new_donor->priority > thread_current()->original_priority) {
         thread_current()->priority = new_donor->priority;
         thread_current()->donor = new_donor;
+      } else {
+        thread_current()->priority = thread_current()->original_priority;
+        thread_current()->donor = NULL;
       }
     } else {
       thread_current()->priority = thread_current()->original_priority;
       thread_current()->donor = NULL;
     }
   }
+
   if (!list_empty(&(&lock->semaphore)->waiters)) {
     e = list_max(&(&lock->semaphore)->waiters, priority_comparator, NULL);
     struct thread *new_holder = list_entry(e, struct thread, elem);
@@ -316,12 +323,10 @@ lock_release (struct lock *lock)
     //current thread's blocking_lock variable to NULL
     new_holder->blocking_lock = NULL;
     lock->holder = new_holder;
-    sema_up(&lock->semaphore);
-    sema_down(&lock->semaphore);
   } else {
     lock->holder = NULL;
-    sema_up(&lock->semaphore);
   }
+  sema_up(&lock->semaphore);
   intr_set_level (old_level);
 
 }
