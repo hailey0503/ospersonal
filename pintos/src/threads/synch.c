@@ -120,8 +120,8 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters))
     thread_unblock (list_entry (list_return_remove (list_max (&sema->waiters, priority_comparator, NULL)), struct thread, elem));
   sema->value++;
-  intr_set_level (old_level);
   thread_yield();
+  intr_set_level (old_level);
 }
 
 static void sema_test_helper (void *sema_);
@@ -211,8 +211,11 @@ lock_acquire (struct lock *lock)
     list_push_front(&lock->holder->donors, &thread_current()->donor_elem);
     struct list_elem *max_elem = list_max(&lock->holder->donors, priority_donor_comparator, NULL);
     struct thread *max_thread = list_entry(max_elem, struct thread, donor_elem);
-    lock->holder->priority = max_thread->priority;
-    lock->holder->donor = max_thread;
+    if (max_thread->priority > lock->holder->priority) {
+      lock->holder->priority = max_thread->priority;
+      lock->holder->donor = max_thread;
+    }
+
 
     // This part is to check if there is a chain. For example There are threads 0-5 (with priority = thread number)
     // and locks 0-4 thread[i] will acquire lock[i] (except thread 5), and then thread[i] will try to acquire lock[i-1]
@@ -229,8 +232,8 @@ lock_acquire (struct lock *lock)
   } else {
     lock->holder = thread_current();
   }
-  intr_set_level (old_level);
   sema_down(&lock->semaphore);
+  intr_set_level (old_level);
 
 }
 
@@ -311,10 +314,12 @@ lock_release (struct lock *lock)
     //current thread's blocking_lock variable to NULL
     new_holder->blocking_lock = NULL;
     lock->holder = new_holder;
+    sema_up(&lock->semaphore);
+    sema_down(&lock->semaphore);
   } else {
     lock->holder = NULL;
+    sema_up(&lock->semaphore);
   }
-  sema_up(&lock->semaphore);
   intr_set_level (old_level);
 
 }
