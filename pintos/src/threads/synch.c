@@ -36,6 +36,22 @@ bool priority_comparator(const struct list_elem *a, const struct list_elem *b, v
 bool priority_cond_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 bool priority_donor_comparator(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
+/*bandaid helper function for lock_release */
+bool donorlist_contains_thread(struct thread *t, tid_t tid);
+
+bool
+donorlist_contains_thread(struct thread *t, tid_t tid) {
+
+  struct list_elem *e;
+  for (e = list_begin(&t->donors); e != list_end(&t->donors); e = list_next(e)) {
+
+    struct thread *item = list_entry(e,struct thread,donor_elem);
+    if (item->tid == tid)
+      return true;
+  }
+  return false;
+
+}
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -208,6 +224,13 @@ lock_acquire (struct lock *lock)
     //the priority of the lock holder, assign the lock holder's donor variable to its new donor,
     //and assign the current thread's blocking lock variable to the lock it's
     //trying to acquire, since it is trying to acquire an acquired lock.
+    
+    if (lock->holder->priority > thread_current()->priority) {
+     // list_push_back (&(&lock->semaphore)->waiters, &thread_current()->elem);
+      sema_down(&lock->semaphore);
+      lock->holder = thread_current();
+      return;
+    }
     list_push_front(&lock->holder->donors, &thread_current()->donor_elem);
     struct list_elem *max_elem = list_max(&lock->holder->donors, priority_donor_comparator, NULL);
     struct thread *max_thread = list_entry(max_elem, struct thread, donor_elem);
@@ -229,8 +252,10 @@ lock_acquire (struct lock *lock)
   } else {
     lock->holder = thread_current();
   }
-  intr_set_level (old_level);
+ // intr_set_level (old_level);
   sema_down(&lock->semaphore);
+  lock->holder = thread_current();
+  intr_set_level (old_level);
 
 }
 
@@ -273,13 +298,17 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   old_level = intr_disable ();
-
+  
   // We have to remove every waiter for the lock that is getting released from the donor's list.
   struct list_elem *e;
+  int size = list_size(&(&lock->semaphore)->waiters);
   for (e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
     struct thread *t = list_entry(e, struct thread, elem);
-    list_remove(&t->donor_elem);
+    if (!list_empty(&lock->holder->donors) && donorlist_contains_thread (thread_current(),t->tid)) {
+     list_remove(&t->donor_elem);
+     }
   }
+  
 
   //Check if there is an existing donor for this lock.
   if (thread_current()->donor != NULL) {
@@ -297,23 +326,30 @@ lock_release (struct lock *lock)
       thread_current()->donor = NULL;
     }
   }
+  
   if (!list_empty(&(&lock->semaphore)->waiters)) {
     e = list_max(&(&lock->semaphore)->waiters, priority_comparator, NULL);
     struct thread *new_holder = list_entry(e, struct thread, elem);
 
     for (e = list_begin(&(&lock->semaphore)->waiters); e != list_end(&(&lock->semaphore)->waiters); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
-      if (t != new_holder) {
+      if (t != new_holder && t->priority > new_holder->priority) {
         list_push_back(&new_holder->donors, &t->donor_elem);
       }
     }
     // Since the lock has been acquired by the current thread, we change the
     //current thread's blocking_lock variable to NULL
     new_holder->blocking_lock = NULL;
-    lock->holder = new_holder;
+   // lock->holder = new_holder;
+    lock->holder = NULL;
+    // sema_up(&lock->semaphore);
+    // sema_down(&lock->semaphore);
   } else {
     lock->holder = NULL;
+   // sema_up(&lock->semaphore);
   }
+  
+  //lock->holder = NULL;
   sema_up(&lock->semaphore);
   intr_set_level (old_level);
 
