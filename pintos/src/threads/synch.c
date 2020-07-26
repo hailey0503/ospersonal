@@ -293,8 +293,10 @@ lock_release (struct lock *lock)
     if (!list_empty(&thread_current()->donors)) {
       struct list_elem *max_elem = list_max(&thread_current()->donors, priority_donor_comparator, NULL);
       struct thread *new_donor = list_entry(max_elem, struct thread, donor_elem);
-      thread_current()->priority = new_donor->priority;
-      thread_current()->donor = new_donor;
+      if (new_donor->priority > thread_current()->original_priority) {
+        thread_current()->priority = new_donor->priority;
+        thread_current()->donor = new_donor;
+      }
     } else {
       thread_current()->priority = thread_current()->original_priority;
       thread_current()->donor = NULL;
