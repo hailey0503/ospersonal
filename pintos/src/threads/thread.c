@@ -7,12 +7,14 @@
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -98,6 +100,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  list_init(&(initial_thread->child_share));
+  initial_thread->parent_share = NULL;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -108,13 +112,17 @@ thread_start (void)
   /* Create the idle thread. */
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
-  thread_create ("idle", PRI_MIN, idle, &idle_started);
+  tid_t tid = thread_create ("idle", PRI_MIN, idle, &idle_started);
+
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
 
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
+  struct thread *t = get_thread(tid);
+  sema_down(&(t->setup));
+  list_push_back(&(thread_current()->child_share), &(t->parent_share->elem));
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -181,7 +189,21 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  sema_init(&(t->setup), 0);
   tid = t->tid = allocate_tid ();
+  t->rvalue = -1;
+
+  /* Setup process_share. */
+  list_init(&(t->child_share));
+  t->parent_share = (process_share *) malloc(sizeof(process_share));
+  process_share *p = t->parent_share;
+  p->tid = tid;
+  sema_init(&(p->sig), 0);
+  p->refcount = 2;
+  lock_init(&(p->lock));
+  sema_init(&p->successload, 0);
+  p->loaded = true;
+  sema_up(&(t->setup));
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -202,6 +224,19 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   return tid;
+}
+
+/* Get the thread with tid TID, or NULL if TID is not found.*/
+struct thread *get_thread (tid_t tid) {
+    struct list_elem *e;
+    struct thread *t;
+    for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+        t = list_entry(e, struct thread, allelem);
+        if (t->tid == tid) {
+            return t;
+        }
+    }
+    return NULL;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -463,6 +498,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&t->fds);
+  memset(t->closed_files, 0, sizeof(t->closed_files));
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

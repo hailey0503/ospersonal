@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
+#include "lib/kernel/list.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -25,6 +26,17 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+typedef struct process_share {
+    tid_t tid;
+    struct semaphore sig;
+    int rvalue;
+    int refcount;
+    struct lock lock;
+    struct semaphore successload;      /* A temporary semaphore for loading function.*/
+    bool loaded;                       /* False if fails to load function.*/
+    struct list_elem elem;
+} process_share;
 
 /* A kernel thread or user process.
 
@@ -95,9 +107,19 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    struct list child_share;
+    process_share *parent_share;
+    struct semaphore setup;            /* A temporary semaphore for thread setup.*/
+    int rvalue;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+
+    struct list fds;                     /* File descriptors. */
+    int closed_files[128];
+    struct file *file;
+
 #endif
 
     /* Owned by thread.c. */
@@ -117,6 +139,7 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+struct thread *get_thread (tid_t tid);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
