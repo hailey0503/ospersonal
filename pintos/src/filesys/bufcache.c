@@ -1,4 +1,8 @@
-
+#include "devices/block.h"
+#include "threads/synch.h"
+#include <list.h>
+#include <stdbool.h>
+#include "filesys/filesys.h"
 
 struct data {
   unsigned char contents[BLOCK_SECTOR_SIZE];
@@ -81,7 +85,7 @@ static struct metadata* bufcache_access(block_sector_t sector) {
 
       list_remove(&match->lru_elem);
       list_push_front(&lru_list, &match->lru_elem);
-      
+
       return match;
     }
 
@@ -114,7 +118,6 @@ void bufcache_init(void) {
     list_push_front(&lru_list, entries[i].lru_elem);
   }
 }
-
 
 void bufcache_read(block_sector_t sector, void* buffer, size_t offset, size_t length) {
   ASSERT(offset + length < BLOCK_SECTOR_SIZE);
