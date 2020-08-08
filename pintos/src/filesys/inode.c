@@ -90,14 +90,17 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->magic = INODE_MAGIC;
       if (free_map_allocate (sectors, &disk_inode->start))
         {
-          block_write (fs_device, sector, disk_inode);
+          //block_write (fs_device, sector, disk_inode);
+          bufcache_write(fs_device, sector, disk_inode, 0, BLOCK_SECTOR_SIZE);
           if (sectors > 0)
             {
               static char zeros[BLOCK_SECTOR_SIZE];
               size_t i;
 
               for (i = 0; i < sectors; i++)
-                block_write (fs_device, disk_inode->start + i, zeros);
+                //block_write (fs_device, disk_inode->start + i, zeros);
+                bufcache_write(fs_device, disk_inode->start + i, zeros, 0, BLOCK_SECTOR_SIZE);
+
             }
           success = true;
         }
@@ -138,7 +141,8 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  block_read (fs_device, inode->sector, &inode->data);
+  //block_read (fs_device, inode->sector, &inode->data);
+  bufcache_read(fs_device, inode->sector, &inode->data, 0, BLOCK_SECTOR_SIZE);
   return inode;
 }
 
@@ -220,7 +224,8 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
-      bufcache_read(sector_idx, buffer, offset, size);
+      //block_read (fs_device, sector_idx, bounce);
+      bufcache_read(fs_device, sector_idx, (void*) buffer + bytes_read, sector_ofs, chunk_size);
 
       /* Advance. */
       size -= chunk_size;
@@ -262,7 +267,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
-      bufcache_write(sector_idx, (void*) buffer, offset, size);
+      //block_write (fs_device, sector_idx, bounce);
+      bufcache_write(fs_device, sector_idx, (void*) buffer + bytes_written, sector_ofs, chunk_size);
 
       /* Advance. */
       size -= chunk_size;

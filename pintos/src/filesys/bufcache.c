@@ -1,14 +1,10 @@
-#include "devices/block.h"
-#include "threads/synch.h"
 #include "filesys/bufcache.h"
+#include "threads/synch.h"
+#include "filesys/filesys.h"
 #include <list.h>
 #include <stdbool.h>
 #include <debug.h>
-
-void bufcache_read(block_sector_t sector, void* buffer, size_t offset, size_t length);
-void bufcache_write(block_sector_t sector, void* buffer, size_t offset, size_t length);
-void bufcache_flush(void);
-void bufcache_init(void);
+#include <string.h>
 
 #define NUM_ENTRIES 64
 
@@ -41,7 +37,7 @@ void bufcache_init(void) {
     cond_init(&entries[i].until_ready);
     entries[i].dirty = false;
     entries[i].ready = true;
-    entries[i].sector = 0; //INVALID SECTOR
+    entries[i].sector = -1; //INVALID SECTOR
     entries[i].entry = &cached_data[i];
     list_push_front(&lru_list, &entries[i].lru_elem);
   }
@@ -67,12 +63,12 @@ static struct metadata* find(block_sector_t sector) {
     }
     return NULL;
 }
-static void clean(struct metadata* entry) {
+static void clean(struct block *block, struct metadata* entry) {
     ASSERT(lock_held_by_current_thread(&cache_lock));
     ASSERT(entry->dirty);
     entry->ready = false;
     lock_release(&cache_lock);
-    block_write(fs_device, entry->sector, (void*) entry->entry);
+    block_write(block, entry->sector, (void*) entry->entry);
     lock_acquire(&cache_lock);
     entry->ready = true;
     entry->dirty = false;
@@ -80,20 +76,20 @@ static void clean(struct metadata* entry) {
     cond_broadcast(&until_one_ready, &cache_lock);
 }
 
-static void replace(struct metadata* entry, block_sector_t sector) {
+static void replace(struct block *block, struct metadata* entry, block_sector_t sector) {
   ASSERT(lock_held_by_current_thread(&cache_lock));
   ASSERT(!entry->dirty);
   entry->sector = sector;
   entry->ready = false;
   lock_release(&cache_lock);
-  block_read(fs_device, sector, (void*) entry->entry);
+  block_read(block, sector, (void*) entry->entry);
   lock_acquire(&cache_lock);
   entry->ready = true;
   cond_broadcast(&entry->until_ready, &cache_lock);
   cond_broadcast(&until_one_ready, &cache_lock);
 }
 
-static struct metadata* bufcache_access(block_sector_t sector) {
+static struct metadata* bufcache_access(struct block *block, block_sector_t sector) {
   ASSERT(lock_held_by_current_thread(&cache_lock));
   while(1) {
     struct metadata* match = find(sector);
@@ -117,27 +113,27 @@ static struct metadata* bufcache_access(block_sector_t sector) {
     }
 
     else if (to_evict->dirty) {
-      clean(to_evict);
+      clean(block, to_evict);
     }
 
     else {
-      replace(to_evict, sector);
+      replace(block, to_evict, sector);
     }
   }
 }
 
-void bufcache_read(block_sector_t sector, void* buffer, size_t offset, size_t length) {
-  ASSERT(offset + length < BLOCK_SECTOR_SIZE);
+void bufcache_read(struct block *block, block_sector_t sector, void* buffer, size_t offset, size_t length) {
+  ASSERT(offset + length <= BLOCK_SECTOR_SIZE);
   lock_acquire(&cache_lock);
-  struct metadata* entry = bufcache_access(sector);
+  struct metadata* entry = bufcache_access(block, sector);
   memcpy(buffer, &entry->entry->contents[offset], length);
   lock_release(&cache_lock);
 }
 
-void bufcache_write(block_sector_t sector, void* buffer, size_t offset, size_t length) {
+void bufcache_write(struct block *block, block_sector_t sector, void* buffer, size_t offset, size_t length) {
   ASSERT(offset + length <= BLOCK_SECTOR_SIZE);
   lock_acquire(&cache_lock);
-  struct metadata* entry = bufcache_access(sector);
+  struct metadata* entry = bufcache_access(block, sector);
   memcpy(&entry->entry->contents[offset], buffer, length);
   entry->dirty = true;
   lock_release(&cache_lock);
@@ -147,7 +143,7 @@ void bufcache_flush(void) {
   lock_acquire(&cache_lock);
   for (int i = 0; i < NUM_ENTRIES; i++) {
     if (entries[i].dirty && entries[i].ready) {
-      clean(&entries[i]);
+      clean(fs_device, &entries[i]);
     }
   }
 }
