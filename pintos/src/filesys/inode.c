@@ -390,7 +390,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 
 
   lock_acquire(&inode->inode_lock);
-  while (inode->extending || inode->deny_write_cnt < 0) {
+/*  while (inode->extending ||  inode->deny_write_cnt < 0) {
     if (inode->extending) {
       cond_wait(&inode->until_not_extending, &inode->inode_lock);
     }
@@ -402,7 +402,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     lock_release(&inode->inode_lock);
     return -1;
   }
-  lock_release(&inode->inode_lock);
+  lock_release(&inode->inode_lock); */
 
   while (size > 0)
     {
@@ -428,6 +428,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
+    lock_release(&inode->inode_lock);
 
   return bytes_read;
 }
@@ -460,6 +461,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   } else {
       lock_release(&inode->inode_lock);
   }
+  lock_acquire(&inode->inode_lock);
   while (size > 0)
     {
       /* Sector to write, starting byte offset within sector. */
@@ -482,7 +484,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-
+  lock_release(&inode->inode_lock);
   lock_acquire(&inode->inode_lock);
   inode->deny_write_cnt++;
   if (inode->deny_write_cnt == 0) {
