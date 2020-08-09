@@ -12,7 +12,6 @@
 #include "filesys/file.h"
 #include "threads/malloc.h"
 
-static struct lock file_lock;
 static struct global_file* global_files[1024];
 static void syscall_handler (struct intr_frame *);
 void validate_string( char* file, struct intr_frame *f);
@@ -38,7 +37,6 @@ void validate_pointer (void* pointer, struct intr_frame *f);
 
 /* Free all the allocated memory that was assigned to a thread */
 void free_thread(void) {
-  lock_acquire(&file_lock);
   struct list *list = &(thread_current()->fds);
   struct list_elem *e;
   struct file_descriptor *fd;
@@ -50,7 +48,6 @@ void free_thread(void) {
     }
     free(fd);
   }
-  lock_release(&file_lock);
 }
 
 /* Helper function to find a given file in a process's list of file descriptors. */
@@ -154,7 +151,6 @@ void validate_string (char *file, struct intr_frame *f) {
 void
 syscall_init (void) {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  lock_init(&file_lock);
 }
 
 
@@ -210,9 +206,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       char *file = pagedir_get_page(thread_current()->pagedir, (void*) args[1]);
 
-      lock_acquire(&file_lock);
       f->eax = syscall_create(file, args[2]);
-      lock_release(&file_lock);
 
 
   } else if (args[0] == SYS_REMOVE) {
@@ -220,9 +214,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       char *file = pagedir_get_page(thread_current()->pagedir, (void*) args[1]);
 
-      lock_acquire(&file_lock);
       f->eax = syscall_remove(file);
-      lock_release(&file_lock);
 
 
   } else if (args[0] == SYS_OPEN) {
@@ -230,15 +222,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       char *file = pagedir_get_page(thread_current()->pagedir, (void*) args[1]);
 
-      lock_acquire(&file_lock);
       f->eax = syscall_open(file);
-      lock_release(&file_lock);
 
   } else if (args[0] == SYS_FILESIZE) {
 
-      lock_acquire(&file_lock);
       f->eax = syscall_filesize((int) args[1]);
-      lock_release(&file_lock);
 
 
   } else if (args[0] == SYS_READ) {
@@ -251,9 +239,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       buffer = pagedir_get_page(thread_current()->pagedir, buffer);
 
-      lock_acquire(&file_lock);
       f->eax = syscall_read(fd, buffer, size);
-      lock_release(&file_lock);
 
 
   } else if (args[0] == SYS_WRITE) {
@@ -266,21 +252,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       buffer = pagedir_get_page(thread_current()->pagedir, buffer);
 
-      lock_acquire(&file_lock);
       f->eax = syscall_write(fd, buffer, size);
-      lock_release(&file_lock);
 
   } else if (args[0] == SYS_SEEK) {
 
-      lock_acquire(&file_lock);
       syscall_seek(args[1], args[2]);
-      lock_release(&file_lock);
 
   } else if (args[0] == SYS_TELL) {
 
-      lock_acquire(&file_lock);
       f->eax = syscall_tell(args[1]);
-      lock_release(&file_lock);
 
   } else if (args[0] == SYS_CLOSE) {
     int fd = args[1];
@@ -288,9 +268,7 @@ syscall_handler (struct intr_frame *f UNUSED)
           system_exit(f, -1);
           return;
     }
-    lock_acquire(&file_lock);
     syscall_close(fd);
-    lock_release(&file_lock);
 
   } else {
       system_exit(f, -1);
