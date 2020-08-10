@@ -288,7 +288,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   } else if (args[0] == SYS_MKDIR) {
       validate_string((char *)args[1],f);
-      f->eax = filesys_create((const char*)args[1],16,1); //set to 1 to indicate Directory
+      f->eax = filesys_create((const char*)args[1],512,1); //set to 1 to indicate Directory
       return;
   } else if (args[0] == SYS_READDIR) {
       int file_descriptor = args[1];

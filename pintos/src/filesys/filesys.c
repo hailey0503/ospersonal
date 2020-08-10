@@ -16,11 +16,11 @@ static void do_format (void);
 /*Splits name into a valid directory and a new filename to create */
 void set_items(struct passer_create *pc, int splitIndex, const char *name) {
   struct dir *d = get_start_from(name);
-  char *token; char *zero = NULL;
+  char *token; char *zero = NULL; const char *cc = "/";
   struct dir *nextdir; struct inode *inode_ = NULL; int i = 0;
-
+  
   //only fed a single filename, pass back starting directory & fname
-  if (splitIndex == 0) {
+  if (splitIndex == 0 && memcmp(name,cc,1) != 0) {
     pc ->retdir = d;
     pc->ret_name = name;
     return;
@@ -32,12 +32,12 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
       pc->ret_name = NULL;
       return;
     }
+    i += 1;
     if (i == splitIndex)
       break;
     nextdir = dir_open(inode_);
     dir_close(d);
     d = nextdir;
-    i += 1;
   }
   pc->retdir = d;
   pc->ret_name = token = strtok_r(NULL,"/",&zero);
