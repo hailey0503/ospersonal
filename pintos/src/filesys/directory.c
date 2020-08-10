@@ -303,8 +303,8 @@ struct dir *get_start_from(const char *name) {
   struct dir *d = thread_current()->cdir_;
   struct dir *e = dir_open_root();  
   if (memcmp(name,check,1) != 0)
-    return dir_open_root();
-  return dir_open(inode_open(thread_current()->cdir_));
+    return e;
+  return d;
 
 }
 /*denotes seperator between directory searching and filename (should be the last index of an array) */
