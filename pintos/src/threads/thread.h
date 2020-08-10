@@ -103,7 +103,14 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-    struct dir *cdir_;                  /* Task 3 */
+   
+
+    /* Trying to figure out how to get the root directory into thread properly
+       since it fatal errors on initial thread assignment */
+    struct dir *cdir_;
+    struct dir *pdir_;
+
+    //struct thread *parent;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 

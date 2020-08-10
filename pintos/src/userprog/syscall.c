@@ -41,12 +41,7 @@ bool syscall_chdir(const char *dir);
 bool syscall_isdir(int fd);
 /* Tasl 3 function implementations */
 bool syscall_chdir(const char *dir) {
-  
-  struct dir *d = get_dir_from(dir);
-  if (d == NULL)
-    return false;
-  thread_current()->cdir_ = d;
-  return true;
+  return chdir_to(dir);
 }
 
 /* Free all the allocated memory that was assigned to a thread */

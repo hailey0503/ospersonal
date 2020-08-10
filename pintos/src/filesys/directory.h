@@ -34,4 +34,5 @@ struct dir *get_dir_from(const char *name);
 const char *get_fname_from(const char *name);
 struct dir *get_start_from(const char *name);
 int get_splitIndex(const char *name);
+bool chdir_to(const char *name);
 #endif /* filesys/directory.h */

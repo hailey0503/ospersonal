@@ -249,12 +249,30 @@ struct dir *get_dir_from(const char *name) {
   struct dir *d = get_start_from(name);
   char *token; char *zero = NULL;
   struct dir *nextdir; struct inode *inode_ = NULL;
-
+  const char *case_current = ".";
+  const char *case_parent = "..";
   //if split index = 0, only filename is passed in and we return either absolute or current dir
-  if (get_splitIndex(name) == 0)
+  if (get_splitIndex(name) == 0) {
     return d;
+  }
 
   for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+    if (memcmp((const char*)token,case_current,1) == 0 && strlen(token) == 1) {
+      //get current directory
+      inode_ = inode_open(thread_current()->cdir_);
+      nextdir = dir_open(inode_);
+      dir_close(d);
+      d = nextdir;
+      continue;
+    }
+    if (memcmp((const char *)token,case_parent,2) == 0 && strlen(token) == 2) {
+      //get parent directory
+      inode_ = inode_open(thread_current()->pdir_);
+      nextdir = dir_open(inode_);
+      dir_close(d);
+      d = nextdir;
+      continue;
+    }
     if (dir_lookup(d,token,&inode_) == false)
       return NULL;
     if (inode_get_isdir(inode_) == false)
@@ -281,10 +299,11 @@ const char *get_fname_from(const char *name) {
 /* Checks first character of a string and returns either current directory or root directory */
 struct dir *get_start_from(const char *name) {
   const char *check = "/";
-  
+  struct dir *d = thread_current()->cdir_;
+  struct dir *e = dir_open_root();  
   if (memcmp(name,check,1) != 0)
     return dir_open_root();
-  return thread_current()->cdir_;
+  return dir_open(inode_open(thread_current()->cdir_));
 
 }
 /*denotes seperator between directory searching and filename (should be the last index of an array) */
@@ -298,3 +317,53 @@ int get_splitIndex(const char *name) {
   return index;
 }
 
+/*seperate handling for split = 0, meant only to be used with chdir syscall */
+bool chdir_to(const char *name) {
+   struct dir *d = get_start_from(name);
+   char *token; char *zero = NULL;
+   struct dir *nextdir; struct inode *inode_ = NULL;
+   const char *case_current = ".";
+   const char *case_parent = "..";
+   //if split index = 0, only filename is passed in and we return either absolute or current dir
+   if (get_splitIndex(name) == 0) {
+     if (dir_lookup(d,name,&inode_) == true && inode_get_isdir(inode_)) {
+       nextdir = dir_open(inode_);
+       dir_close(d);
+       d = nextdir;
+       thread_current()->pdir_ = thread_current()->cdir_;
+       thread_current()->cdir_ = d;
+       return true;
+     }else {
+       return false;
+     }
+   }
+
+   for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+     if (memcmp((const char*)token,case_current,1) == 0 && strlen(token) == 1) {
+       //get current directory
+       inode_ = inode_open(thread_current()->cdir_);
+       nextdir = dir_open(inode_);
+       dir_close(d);
+       d = nextdir;
+       continue;
+     }
+     if (memcmp((const char *)token,case_parent,2) == 0 && strlen(token) == 2) {
+       //get parent directory
+       inode_ = inode_open(thread_current()->pdir_);
+       nextdir = dir_open(inode_);
+       dir_close(d);
+       d = nextdir;
+       continue;
+     }
+     if (dir_lookup(d,token,&inode_) == false)
+       return false;
+     if (inode_get_isdir(inode_) == false)
+       return false;
+     nextdir = dir_open(inode_);
+     dir_close(d);
+     d = nextdir;
+   }
+  thread_current()->pdir_ = thread_current()->cdir_;
+  thread_current()->cdir_ = d;
+  return true;
+}

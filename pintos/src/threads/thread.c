@@ -13,6 +13,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "filesys/bufcache.h"
+#include "filesys/filesys.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "filesys/file.h"
@@ -106,7 +107,9 @@ thread_init (void)
   list_init(&(initial_thread->child_share));
   initial_thread->parent_share = NULL;
   /*Task 3 */
-  initial_thread->cdir_ = 0;
+  //initial_thread->cdir_ = ROOT_DIR_SECTOR;
+  initial_thread->cdir_ = NULL;
+  initial_thread->pdir_ =  NULL;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.

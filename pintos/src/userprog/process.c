@@ -29,7 +29,7 @@ char* stack_args;
 
 /*Task 3: struct to pass parent directory to child thread */
 struct passer {
-  struct dir *pdir;
+  struct dir *p;
   char *fcpy;
 };
 
@@ -54,7 +54,7 @@ process_execute (const char *file_name)
 
   /*Task 3 */
   struct passer *passer_ = malloc(sizeof(struct passer));
-  passer_->pdir = thread_current()->cdir_;
+  passer_->p = thread_current();
   passer_->fcpy = fn_copy;
 
   /* Create a new thread to execute FILE_NAME. */
@@ -81,9 +81,11 @@ static void
 start_process (void *file_name_)
 {
   /*Task 3 */
+  
   struct passer *p = file_name_;
-  struct dir *parent_dir = p->pdir;
-  thread_current()->cdir_ = parent_dir;
+  struct dir *parent_ = p->p;
+  thread_current()->cdir_ = parent_;
+  thread_current()->pdir_ = parent_;
   char *file_name = p->fcpy;
   
   /* end Task 3 */
