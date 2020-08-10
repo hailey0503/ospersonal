@@ -114,27 +114,52 @@ filesys_create (const char *name, off_t initial_size, bool isdir_)
 struct file *
 filesys_open (const char *name)
 {
-  /*Task 3 */
+
+  
+  //our implementation
+  //check for empty files/directories
   int size = strlen(name);
   if (size == 0)
     return NULL;
+  //copy name and get starting directory
   char *cpyname = malloc(sizeof(char) * (size + 1));
   strlcpy(cpyname, name, size+1);
-  struct dir *dir = get_dir_from(name);
-  free(cpyname);
-  cpyname = malloc(sizeof(char) * (size + 1));
-  strlcpy(cpyname, name, size+1);
-  const char *fname = get_fname_from(cpyname);
-  //struct dir *dir = dir_open_root ();
-  struct inode *inode = NULL;
-
-  if (dir != NULL)
-    dir_lookup (dir, fname /* name */, &inode);
-
+  struct dir *d = get_start_from(name);
+  struct dir *e = dir_open_root();
   
-  dir_close (dir);
+  //declare variables for strtok loop
+  char *token; char *zero = NULL; struct dir *nextdir;
+  struct inode *inode_ = NULL;
+  const char *cc = "."; const char *cp = "..";
+  
+  //strtok loop
+  for (token = strtok_r(name, "/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+    if (memcmp((const char*)token,cc,1) == 0 && strlen(token) == 1) {
+      inode_ = dir_get_inode(thread_current()->cdir_);
+      nextdir = dir_open(inode_);
+      dir_close(d);
+      d = nextdir;
+      return file_open(inode_);
+    }
+    if (memcmp((const char *)token,cp,2) == 0 && strlen(token) == 2) {
+      inode_ = dir_get_inode(thread_current()->pdir_);
+      nextdir = dir_open(inode_);
+      dir_close(d);
+      d = nextdir;
+      return file_open(inode_);
+    }
 
-  return file_open (inode);
+    if (dir_lookup(d, token, &inode_) == false) {
+      return NULL;
+    }
+    nextdir = dir_open(inode_);
+    dir_close(d);
+    d = nextdir;
+  }
+  free(cpyname);
+ // dir_close(d);
+  return file_open(inode_);
+  
 }
 
 /* Deletes the file named NAME.
