@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 //#include "threads/thread.h"
 /* A directory. */
+//add a line to check commit
 struct dir
   {
     struct inode *inode;                /* Backing store. */

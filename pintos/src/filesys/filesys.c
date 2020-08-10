@@ -18,7 +18,7 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
   struct dir *d = get_start_from(name);
   char *token; char *zero = NULL;
   struct dir *nextdir; struct inode *inode_ = NULL; int i = 0;
-  
+
   //only fed a single filename, pass back starting directory & fname
   if (splitIndex == 0) {
     pc ->retdir = d;
@@ -90,7 +90,7 @@ filesys_create (const char *name, off_t initial_size, bool isdir_)
   const char *fname = pc->ret_name;
   //get inode number of the directory we want to make new file at
   block_sector_t inode_sector = inode_get_inumber(dir_get_inode(dir));
-  
+
   //block_sector_t inode_sector = 0;
   //struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
@@ -125,12 +125,12 @@ filesys_open (const char *name)
   strlcpy(cpyname, name, size+1);
   struct dir *d = get_start_from(name);
   struct dir *e = dir_open_root();
-  
+
   //declare variables for strtok loop
   char *token; char *zero = NULL; struct dir *nextdir;
   struct inode *inode_ = NULL;
   const char *cc = "."; const char *cp = "..";
-  
+
   //strtok loop
   for (token = strtok_r(name, "/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
     if (memcmp((const char*)token,cc,1) == 0 && strlen(token) == 1) {
@@ -199,17 +199,19 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
   }
 
   for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+
+    if (i == splitIndex)
+      break;
     if (dir_lookup(d,token,&inode_) == false) {
       pc->retdir = NULL;
       pc->ret_name = NULL;
       return;
     }
-    if (i == splitIndex)
-      break;
+    
+    i += 1;
     nextdir = dir_open(inode_);
     dir_close(d);
     d = nextdir;
-    i += 1;
   }
   pc->retdir = d;
   pc->ret_name = token;// = strtok_r(NULL,"/",&zero); this line is automerged somehow? saving in case
