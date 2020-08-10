@@ -4,7 +4,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "devices/block.h"
-
+#include "threads/synch.h"
+#include "threads/thread.h"
+#include <string.h>
 /* Maximum length of a file name component.
    This is the traditional UNIX maximum length.
    After directories are implemented, this maximum length may be
@@ -12,7 +14,7 @@
 #define NAME_MAX 14
 
 struct inode;
-
+struct lock;
 /* Opening and closing directories. */
 bool dir_create (block_sector_t sector, size_t entry_cnt);
 struct dir *dir_open (struct inode *);
@@ -27,4 +29,10 @@ bool dir_add (struct dir *, const char *name, block_sector_t);
 bool dir_remove (struct dir *, const char *name);
 bool dir_readdir (struct dir *, char name[NAME_MAX + 1]);
 
+/*Task 3 helpers */
+struct dir *get_dir_from(const char *name);
+const char *get_fname_from(const char *name);
+struct dir *get_start_from(const char *name);
+int get_splitIndex(const char *name);
+bool chdir_to(const char *name);
 #endif /* filesys/directory.h */

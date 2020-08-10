@@ -11,7 +11,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "threads/malloc.h"
-
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 static struct global_file* global_files[1024];
 static void syscall_handler (struct intr_frame *);
 void validate_string( char* file, struct intr_frame *f);
@@ -34,6 +35,14 @@ struct global_file* search_global(struct file* file);
 struct global_file* insert_global(struct file* file);
 void delete_fd (struct list* list, int value);
 void validate_pointer (void* pointer, struct intr_frame *f);
+
+/* Task 3 function declarations */
+bool syscall_chdir(const char *dir);
+bool syscall_isdir(int fd);
+/* Tasl 3 function implementations */
+bool syscall_chdir(const char *dir) {
+  return chdir_to(dir);
+}
 
 /* Free all the allocated memory that was assigned to a thread */
 void free_thread(void) {
@@ -270,9 +279,47 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     syscall_close(fd);
 
-  } else {
+  }
+  /*Task 3 syscalls (new) note: need to check args & acquire lock, jsut want the basics for now */
+    else if (args[0] == SYS_CHDIR) {
+      validate_string((char *)args[1],f);      
+      f->eax = syscall_chdir((const char*)args[1]);
+      return;
+
+  } else if (args[0] == SYS_MKDIR) {
+      validate_string((char *)args[1],f);
+      f->eax = filesys_create((const char*)args[1],16,1); //set to 1 to indicate Directory
+      return;
+  } else if (args[0] == SYS_READDIR) {
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      struct inode *inode_ = file_get_inode(file_);
+      struct dir *d = dir_open(inode_);
+      f->eax = dir_readdir(d,( char *)args[2]);
+      return;
+  } else if (args[0] == SYS_ISDIR) {
+      //check args here
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      if (file_ == NULL) {system_exit(f,-1);}
+      struct inode *inode_ = file_get_inode(file_);
+      f->eax = inode_get_isdir(inode_);; //note: data is not defined/declared I guess. Only problem field
+      return;
+  } else if (args[0] == SYS_INUMBER) {
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      struct inode *inode_ = file_get_inode(file_);
+      f->eax = inode_get_inumber(inode_);
+      return;
+  }
+  /*End Task 3 syscalls */
+   else {
       system_exit(f, -1);
   }
+}
+
+bool syscall_isdir(int fd) {
+  return true;
 }
 
 int syscall_practice (int i) {
@@ -313,7 +360,7 @@ int syscall_wait(tid_t tid) {
 }
 
 bool syscall_create (const char *file, unsigned initial_size) {
-  bool retval = filesys_create(file, initial_size);
+  bool retval = filesys_create(file, initial_size,0);
   return retval;
 }
 
@@ -422,6 +469,14 @@ void syscall_close (int fd) {
     if (file == NULL) {
       return;
     }
+    /* Task 3, handle if a file is a directory
+    struct inode *inode_ = file_get_inode(file);
+    if (inode_->data.isdir) {
+      struct dir *d = dir_open(inode_);
+      dir_close(d);
+      return;
+    }
+     End Task 3 */
     delete_fd(&thread_current()->fds, fd);
     thread_current()->closed_files[fd] = 1;
     delete_global(file);

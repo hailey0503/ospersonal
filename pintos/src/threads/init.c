@@ -85,6 +85,7 @@ main (void)
   argv = read_command_line ();
   argv = parse_options (argv);
 
+
   /* Initialize ourselves as a thread so we can use locks,
      then enable console locking. */
   thread_init ();
@@ -121,10 +122,11 @@ main (void)
   timer_calibrate ();
 
 #ifdef FILESYS
-  /* Initialize file system. */
+  // Initialize file system.
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+  thread_current()->cdir_ = dir_open_root();
 #endif
 
   printf ("Boot complete.\n");

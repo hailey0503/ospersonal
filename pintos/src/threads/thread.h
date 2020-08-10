@@ -7,7 +7,7 @@
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
 #include "lib/kernel/list.h"
-
+#include "filesys/directory.h"
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -103,7 +103,14 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+   
 
+    /* Trying to figure out how to get the root directory into thread properly
+       since it fatal errors on initial thread assignment */
+    struct dir *cdir_;
+    struct dir *pdir_;
+
+    //struct thread *parent;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 

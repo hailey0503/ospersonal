@@ -27,6 +27,12 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 void exit_share (process_share *p, bool need_rvalue, int rvalue);
 char* stack_args;
 
+/*Task 3: struct to pass parent directory to child thread */
+struct passer {
+  struct dir *p;
+  char *fcpy;
+};
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -46,8 +52,13 @@ process_execute (const char *file_name)
 
   char* name = strtok_r(file_name, " ", &file_name);
 
+  /*Task 3 */
+  struct passer *passer_ = malloc(sizeof(struct passer));
+  passer_->p = thread_current();
+  passer_->fcpy = fn_copy;
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (name, PRI_DEFAULT, start_process, passer_/*fn_copy*/ );
 
   if (tid == TID_ERROR) {
       palloc_free_page (fn_copy);
@@ -69,7 +80,16 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  char *file_name = file_name_;
+  /*Task 3 */
+  
+  struct passer *p = file_name_;
+  struct dir *parent_ = p->p;
+  thread_current()->cdir_ = parent_;
+  thread_current()->pdir_ = parent_;
+  char *file_name = p->fcpy;
+  
+  /* end Task 3 */
+ // char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
 
