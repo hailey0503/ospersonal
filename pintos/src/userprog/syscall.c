@@ -293,7 +293,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   } else if (args[0] == SYS_MKDIR) {
       validate_string((char *)args[1],f);
-      filesys_create((const char*)args[1],16,1); //set to 1 to indicate Directory
+      f->eax = filesys_create((const char*)args[1],16,1); //set to 1 to indicate Directory
       return;
   } else if (args[0] == SYS_READDIR) {
       int file_descriptor = args[1];
@@ -304,11 +304,11 @@ syscall_handler (struct intr_frame *f UNUSED)
       return;
   } else if (args[0] == SYS_ISDIR) {
       //check args here
-     // int file_descriptor = args[1];
-     // struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
-     // if (file_ == NULL) {system_exit(f,-1);}
-     // struct inode *inode_ = file_get_inode(file_);
-     // f->eax = inode_->data.isdir; //note: data is not defined/declared I guess. Only problem field
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      if (file_ == NULL) {system_exit(f,-1);}
+      struct inode *inode_ = file_get_inode(file_);
+      f->eax = inode_get_isdir(inode_);; //note: data is not defined/declared I guess. Only problem field
       return;
   } else if (args[0] == SYS_INUMBER) {
       int file_descriptor = args[1];

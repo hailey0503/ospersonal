@@ -32,11 +32,12 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
       pc->ret_name = NULL;
       return;
     }
+    if (i == splitIndex)
+      break;
     nextdir = dir_open(inode_);
     dir_close(d);
     d = nextdir;
-    if (i == splitIndex)
-      break;
+    i += 1;
   }
   pc->retdir = d;
   pc->ret_name = token = strtok_r(NULL,"/",&zero);
@@ -76,26 +77,30 @@ bool
 filesys_create (const char *name, off_t initial_size, bool isdir_)
 {
   /*Task 3 */
+  //check if empty
+  int sz = strlen(name);
+  if (sz == 0)
+    return false;
   //get the intended directory and new filename from *name
   struct passer_create *pc = malloc(sizeof(struct passer_create));
   int splitIndex = get_splitIndex(name);
   set_items(pc, splitIndex, name);
- // struct dir *dir = pc->retdir;
+  struct dir *dir = pc->retdir;
   const char *fname = pc->ret_name;
   //get inode number of the directory we want to make new file at
-  //block_sector_t inode_sector = inode_get_inumber(dir_get_inode(dir));
+  block_sector_t inode_sector = inode_get_inumber(dir_get_inode(dir));
   
-  block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
+  //block_sector_t inode_sector = 0;
+  //struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size)
-                  && dir_add (dir,/*fname*/ name, inode_sector));
+                  && dir_add (dir,fname /*name*/, inode_sector));
   if (!success && inode_sector != 0){
     free_map_release (inode_sector, 1);
   }
   //set isdir here somehow
-  inode_set_isdir(dir_get_inode(dir),isdir_);
+  inode_set_isdir(inode_open(inode_sector),isdir_);
   dir_close (dir);
 
   return success;
@@ -111,6 +116,8 @@ filesys_open (const char *name)
 {
   /*Task 3 */
   int size = strlen(name);
+  if (size == 0)
+    return NULL;
   char *cpyname = malloc(sizeof(char) * (size + 1));
   strlcpy(cpyname, name, size+1);
   struct dir *dir = get_dir_from(name);
