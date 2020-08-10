@@ -36,6 +36,7 @@ struct global_file* insert_global(struct file* file);
 void delete_fd (struct list* list, int value);
 void validate_pointer (void* pointer, struct intr_frame *f);
 
+
 /* Free all the allocated memory that was assigned to a thread */
 void free_thread(void) {
   struct list *list = &(thread_current()->fds);
@@ -295,7 +296,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
       if (file_ == NULL) {system_exit(f,-1);}
       struct inode *inode_ = file_get_inode(file_);
-      f->eax = inode_get_isdir(inode_); //note: data is not defined/declared I guess. Only problem field
+      f->eax = inode_get_isdir(inode_);
       return;
   } else if (args[0] == SYS_INUMBER) {
       int file_descriptor = args[1];
@@ -305,11 +306,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       return;
   }
   /*End Task 3 syscalls */
-
-
      else {
       system_exit(f, -1);
   }
+}
+
+bool syscall_isdir(int fd) {
+  return true;
 }
 
 int syscall_practice (int i) {
@@ -459,6 +462,14 @@ void syscall_close (int fd) {
     if (file == NULL) {
       return;
     }
+    /* Task 3, handle if a file is a directory
+    struct inode *inode_ = file_get_inode(file);
+    if (inode_->data.isdir) {
+      struct dir *d = dir_open(inode_);
+      dir_close(d);
+      return;
+    }
+     End Task 3 */
     delete_fd(&thread_current()->fds, fd);
     thread_current()->closed_files[fd] = 1;
     delete_global(file);

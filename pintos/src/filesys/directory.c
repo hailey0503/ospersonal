@@ -6,12 +6,13 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
+//#include "threads/thread.h"
 /* A directory. */
 struct dir
   {
     struct inode *inode;                /* Backing store. */
     off_t pos;                          /* Current position. */
-    struct lock dlock;
+    struct lock dlock;                  /* Task 3 */
   };
 
 /* A single directory entry. */
@@ -40,7 +41,7 @@ dir_open (struct inode *inode)
     {
       dir->inode = inode;
       dir->pos = 0;
-     // lock_init(&dir->dlock);
+      lock_init(&dir->dlock);
       return dir;
     }
   else
@@ -223,6 +224,7 @@ dir_remove (struct dir *dir, const char *name)
 bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
+  lock_acquire(&dir->dlock);
   struct dir_entry e;
 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e)
@@ -231,9 +233,11 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
+          lock_release(&dir->dlock);
           return true;
         }
     }
+  lock_release(&dir->dlock);
   return false;
 }
 /* Iterates through a string, checking each directory's existence

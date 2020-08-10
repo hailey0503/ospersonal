@@ -56,6 +56,7 @@ struct inode
     block_sector_t blocks[NUM_BLOCKS_IN_INDIRECT];
   };
 
+
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
@@ -524,7 +525,8 @@ inode_get_isdir ( struct inode *inode)
 {
   return inode->data.isdir;
 }
+
 void
 inode_set_isdir(struct inode *inode, bool value) {
-  inode->data.isdir = value;
+ return inode->data.isdir;
 }

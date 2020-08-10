@@ -11,7 +11,38 @@
 struct block *fs_device;
 
 static void do_format (void);
-void set_items(struct passer_create *pc, int splitIndex, const char *name);
+
+/*
+//Splits name into a valid directory and a new filename to create
+void set_items(struct passer_create *pc, int splitIndex, const char *name) {
+  struct dir *d = get_start_from(name);
+  char *token; char *zero = NULL;
+  struct dir *nextdir; struct inode *inode_ = NULL; int i = 0;
+  
+  //only fed a single filename, pass back starting directory & fname
+  if (splitIndex == 0) {
+    pc ->retdir = d;
+    pc->ret_name = name;
+    return;
+  }
+
+  for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+    if (dir_lookup(d,token,&inode_) == false) {
+      pc->retdir = NULL;
+      pc->ret_name = NULL;
+      return;
+    }
+    if (i == splitIndex)
+      break;
+    nextdir = dir_open(inode_);
+    dir_close(d);
+    d = nextdir;
+    i += 1;
+  }
+  pc->retdir = d;
+  pc->ret_name = token = strtok_r(NULL,"/",&zero);
+}
+*/
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -181,5 +212,5 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
     i += 1;
   }
   pc->retdir = d;
-  pc->ret_name = token = strtok_r(NULL,"/",&zero);
+  pc->ret_name = token;// = strtok_r(NULL,"/",&zero); this line is automerged somehow? saving in case
 }

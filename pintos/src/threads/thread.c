@@ -13,6 +13,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "filesys/bufcache.h"
+#include "filesys/filesys.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "filesys/file.h"
@@ -109,7 +110,6 @@ thread_init (void)
   initial_thread->cdir_ = NULL;
   initial_thread->pdir_ = NULL;
 }
-
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void
