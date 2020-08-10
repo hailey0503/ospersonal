@@ -5,12 +5,14 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-
+#include "threads/synch.h"
+//#include "threads/thread.h"
 /* A directory. */
 struct dir
   {
     struct inode *inode;                /* Backing store. */
     off_t pos;                          /* Current position. */
+    struct lock dlock;                  /* Task 3 */
   };
 
 /* A single directory entry. */
@@ -39,6 +41,7 @@ dir_open (struct inode *inode)
     {
       dir->inode = inode;
       dir->pos = 0;
+      lock_init(&dir->dlock);
       return dir;
     }
   else
@@ -221,6 +224,7 @@ dir_remove (struct dir *dir, const char *name)
 bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
+  lock_acquire(&dir->dlock);
   struct dir_entry e;
 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e)
@@ -229,8 +233,68 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
+          lock_release(&dir->dlock);
           return true;
         }
     }
+  lock_release(&dir->dlock);
   return false;
 }
+/* Iterates through a string, checking each directory's existence
+   Intended example: "/code/personal/hw5/src/"
+                     ['code','personal,'hw5','src']
+                     validate each and return src directory */
+struct dir *get_dir_from(const char *name) {
+
+  struct dir *d = get_start_from(name);
+  char *token; char *zero = NULL;
+  struct dir *nextdir; struct inode *inode_ = NULL;
+
+  //if split index = 0, only filename is passed in and we return either absolute or current dir
+  if (get_splitIndex(name) == 0)
+    return d;
+
+  for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+    if (dir_lookup(d,token,&inode_) == false)
+      return NULL;
+    if (inode_get_isdir(inode_) == false)
+      return NULL;
+    nextdir = dir_open(inode_);
+    dir_close(d);
+    d = nextdir;
+  }
+  
+  return d;
+}
+/* Returns the last token of a path to use as a filename
+   Intended example: "/code/personal/hw5/src/somefile.c"
+                    ignore ['code','personal,'hw5','src']
+                    return 'somefile.c' */
+const char *get_fname_from(const char *name) {
+  char *token; char *zero = NULL; char *ret_token;
+  for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+    ret_token = token;
+  }
+  return ret_token;
+}
+
+/* Checks first character of a string and returns either current directory or root directory */
+struct dir *get_start_from(const char *name) {
+  const char *check = "/";
+  
+  if (memcmp(name,check,1) != 0)
+    return dir_open_root();
+  return thread_current()->cdir_;
+
+}
+/*denotes seperator between directory searching and filename (should be the last index of an array) */
+int get_splitIndex(const char *name) {
+  int index = 0; int i = 0;
+  while (name[i] != '\0') {
+    if (name[i] == '/' && i != 0)
+      index += 1;
+    i += 1;
+  }
+  return index;
+}
+

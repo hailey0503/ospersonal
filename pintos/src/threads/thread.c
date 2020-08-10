@@ -105,6 +105,8 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
   list_init(&(initial_thread->child_share));
   initial_thread->parent_share = NULL;
+  /*Task 3 */
+  initial_thread->cdir_ = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
