@@ -11,7 +11,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "threads/malloc.h"
-
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 static struct global_file* global_files[1024];
 static void syscall_handler (struct intr_frame *);
 void validate_string( char* file, struct intr_frame *f);
@@ -270,7 +271,43 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     syscall_close(fd);
 
-  } else {
+  }
+  /*Task 3 syscalls (new) note: still need to handle locking */
+    else if (args[0] == SYS_CHDIR) {
+      validate_string((char *)args[1],f);      
+      f->eax = chdir_to((const char*)args[1]);
+      return;
+
+  } else if (args[0] == SYS_MKDIR) {
+      validate_string((char *)args[1],f);
+      f->eax = filesys_create((const char*)args[1],16,1); //set to 1 to indicate Directory
+      return;
+  } else if (args[0] == SYS_READDIR) {
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      struct inode *inode_ = file_get_inode(file_);
+      struct dir *d = dir_open(inode_);
+      f->eax = dir_readdir(d,( char *)args[2]);
+      return;
+  } else if (args[0] == SYS_ISDIR) {
+      //check args here
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      if (file_ == NULL) {system_exit(f,-1);}
+      struct inode *inode_ = file_get_inode(file_);
+      f->eax = inode_get_isdir(inode_); //note: data is not defined/declared I guess. Only problem field
+      return;
+  } else if (args[0] == SYS_INUMBER) {
+      int file_descriptor = args[1];
+      struct file *file_ = search_fd(&thread_current()->fds,file_descriptor);
+      struct inode *inode_ = file_get_inode(file_);
+      f->eax = inode_get_inumber(inode_);
+      return;
+  }
+  /*End Task 3 syscalls */
+
+
+     else {
       system_exit(f, -1);
   }
 }
@@ -313,7 +350,7 @@ int syscall_wait(tid_t tid) {
 }
 
 bool syscall_create (const char *file, unsigned initial_size) {
-  bool retval = filesys_create(file, initial_size);
+  bool retval = filesys_create(file, initial_size,0);
   return retval;
 }
 

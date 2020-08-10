@@ -20,7 +20,8 @@
 struct inode_disk
   {
     off_t length;                       /* File size in bytes. */
-    uint32_t isdir;
+    //uint32_t isdir;
+    bool isdir;
     block_sector_t direct_ptrs[NUM_DIRECT];
     block_sector_t singly_indirect_ptr;
     block_sector_t doubly_indirect_ptr;
@@ -517,4 +518,13 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+bool
+inode_get_isdir ( struct inode *inode)
+{
+  return inode->data.isdir;
+}
+void
+inode_set_isdir(struct inode *inode, bool value) {
+  inode->data.isdir = value;
 }
