@@ -18,7 +18,7 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
   struct dir *d = get_start_from(name);
   char *token; char *zero = NULL;
   struct dir *nextdir; struct inode *inode_ = NULL; int i = 0;
-  
+
   //only fed a single filename, pass back starting directory & fname
   if (splitIndex == 0) {
     pc ->retdir = d;
@@ -89,7 +89,7 @@ filesys_create (const char *name, off_t initial_size, bool isdir_)
   const char *fname = pc->ret_name;
   //get inode number of the directory we want to make new file at
   block_sector_t inode_sector = inode_get_inumber(dir_get_inode(dir));
-  
+
   //block_sector_t inode_sector = 0;
   //struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
@@ -115,7 +115,7 @@ struct file *
 filesys_open (const char *name)
 {
 
-  
+
   //our implementation
   //check for empty files/directories
   int size = strlen(name);
@@ -126,12 +126,12 @@ filesys_open (const char *name)
   strlcpy(cpyname, name, size+1);
   struct dir *d = get_start_from(name);
   struct dir *e = dir_open_root();
-  
+
   //declare variables for strtok loop
   char *token; char *zero = NULL; struct dir *nextdir;
   struct inode *inode_ = NULL;
   const char *cc = "."; const char *cp = "..";
-  
+
   //strtok loop
   for (token = strtok_r(name, "/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
     if (memcmp((const char*)token,cc,1) == 0 && strlen(token) == 1) {
@@ -159,7 +159,8 @@ filesys_open (const char *name)
   free(cpyname);
  // dir_close(d);
   return file_open(inode_);
-  
+
+   
 }
 
 /* Deletes the file named NAME.
