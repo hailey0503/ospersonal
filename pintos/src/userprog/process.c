@@ -54,7 +54,7 @@ process_execute (const char *file_name)
 
   /*Task 3 */
   struct passer *passer_ = malloc(sizeof(struct passer));
-  passer_->p = thread_current();
+  passer_->p = thread_current()->cdir_;
   passer_->fcpy = fn_copy;
 
   /* Create a new thread to execute FILE_NAME. */

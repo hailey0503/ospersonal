@@ -25,22 +25,30 @@ void set_items(struct passer_create *pc, int splitIndex, const char *name) {
     pc->ret_name = name;
     return;
   }
+  /*
+  if (memcmp(name,cc,1) == 0 && splitIndex != 0)
+    i += 1; 
+  */
 
   for (token = strtok_r(name,"/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
+    if (splitIndex == 0) {
+      break;
+    }
+    if (i == splitIndex) {
+     break;
+    }
     if (dir_lookup(d,token,&inode_) == false) {
       pc->retdir = NULL;
       pc->ret_name = NULL;
       return;
     }
     i += 1;
-    if (i == splitIndex)
-      break;
     nextdir = dir_open(inode_);
     dir_close(d);
     d = nextdir;
   }
   pc->retdir = d;
-  pc->ret_name = token = strtok_r(NULL,"/",&zero);
+  pc->ret_name = token;
 }
 
 /* Initializes the file system module.
@@ -125,12 +133,17 @@ filesys_open (const char *name)
   char *cpyname = malloc(sizeof(char) * (size + 1));
   strlcpy(cpyname, name, size+1);
   struct dir *d = get_start_from(name);
-  struct dir *e = dir_open_root();
 
   //declare variables for strtok loop
   char *token; char *zero = NULL; struct dir *nextdir;
   struct inode *inode_ = NULL;
   const char *cc = "."; const char *cp = "..";
+
+  if (size == 1) {
+    inode_ = dir_get_inode(d);
+    //dir_close(d);
+    return file_open(inode_);
+  }
 
   //strtok loop
   for (token = strtok_r(name, "/",&zero); token != NULL; token = strtok_r(NULL,"/",&zero)) {
@@ -170,6 +183,9 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name)
 {
+  const char *cc = "/";
+  if (memcmp((const char*)name,cc,1) == 0)
+    return false;
   /*Task 3 */
   struct dir *dir = get_dir_from(name);
   const char *fname = get_fname_from(name);
