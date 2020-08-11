@@ -13,6 +13,8 @@
 #include "threads/malloc.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "devices/block.h"
+#include "filesys/bufcache.h"
 static struct global_file* global_files[1024];
 static void syscall_handler (struct intr_frame *);
 void validate_string( char* file, struct intr_frame *f);
@@ -311,6 +313,14 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct inode *inode_ = file_get_inode(file_);
       f->eax = inode_get_inumber(inode_);
       return;
+  } else if (args[0] == SYS_GETRD) {
+    
+    f->eax = block_get_read(fs_device);
+    return;
+  } else if (args[0] == SYS_BUFRESET) {
+    bufcache_flush();
+    return;
+
   }
   /*End Task 3 syscalls */
    else {

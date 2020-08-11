@@ -221,3 +221,8 @@ list_elem_to_block (struct list_elem *list_elem)
           : NULL);
 }
 
+unsigned long long 
+block_get_read(struct block *block) {
+  return block->read_cnt;
+}
+

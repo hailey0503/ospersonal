@@ -188,3 +188,12 @@ inumber (int fd)
 {
   return syscall1 (SYS_INUMBER, fd);
 }
+
+unsigned long long
+block_get_rd() {
+  return syscall0 (SYS_GETRD);
+}
+void
+reset_bufcache() {
+  return syscall0 (SYS_BUFRESET);
+}

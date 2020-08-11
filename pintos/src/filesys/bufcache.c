@@ -146,4 +146,5 @@ void bufcache_flush(void) {
       clean(fs_device, &entries[i]);
     }
   }
+  lock_release(&cache_lock); //
 }
